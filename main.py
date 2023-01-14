@@ -7,10 +7,12 @@ import datetime
 from wrappers.ttz import TTZ
 from wrappers.asc import ASC
 from wrappers.qbittorrent import QBittorrent
+from tasks import download_progress_message_update, UploadToDrive
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from utils import get_downloader_by_url
 
-load_db = lambda x=None: sqlite3.connect("bolo.db")
-get_datetime = lambda x=None: datetime.datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
+load_db = lambda: sqlite3.connect("bolo.db")
+get_datetime = lambda: datetime.datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
 
 if not os.path.isfile(".env"):
     raise Exception('Enviroment File does not exists.')
@@ -81,7 +83,38 @@ class HandlerCommand:
             self.search()
         elif self.command in ['postinfo']:
             self.get_post_info()
+        elif self.command in ['linktodrive']:
+            self.link_to_drive_downloader()
     
+    def link_do_drive_downloader(self):
+        # sintax: /linktodrive linkhere
+        downloader = get_downloader_by_url(self.args[0])
+        if downloader is None:
+            self.status = "Plataforma não identificada."
+            return
+
+        downloader.__init__(self.args[0], self.telegram_bot, self.message, enviroment)
+        is_poster = False
+        infos = downloader.get_infos()
+        # TODO: Extend this if's to a new class
+        if infos["type"] == 'ifunny':
+            is_poster = True
+            caption = f"Infos:\n\nPlataforma: Ifunny\nSimiles: {infos['smiles']}\nComments: {infos['comments']}\nUploader: {infos['uploader']}"
+            poster_url = infos['poster']
+        # elif infos["type"] == "xvideos":
+        
+        #-----#
+        conn = load_db()
+        # TODO: terminar isso daqui, to com sono, vou dormir, fui.
+        conn.execute("INSERT INTO downloads")
+        keyboard = InlineKeyboardMarkup()
+        keyboard.add(
+            InlineKeyboardButton('Download to TG', callback_data='downIfunny ? telegram'.replace("?", self.args[1]))
+        )
+        
+        if is_poster:
+            self.telegram_bot.send_photo(self.invoker.chat.id, poster_url, caption, reply_markup=keyboard)
+
     def get_post_info(self):
         # sintax: /getpostinfo plataform post_id
         if self.args[0] == 'ttz':
@@ -117,7 +150,6 @@ class HandlerCommand:
                 InlineKeyboardButton('Download to Gdrive', callback_data='downTorrentRequest asc ? googleDrive'.replace("?", self.args[1]))
             )
             caption_text = f"Título: {post_info['title']}\nTamanho: {post_info['size']}\nSeeders: {post_info['seeders']}\nLeechers: {post_info['leechers']}"
-            
             self.telegram_bot.send_photo(chat_id=msg.chat.id, photo=post_info['poster'], caption=caption_text, reply_markup=keyboard)
             self.telegram_bot.delete_message(chat_id=msg.chat.id, message_id=msg.message_id)
             asc.logout()
@@ -227,10 +259,21 @@ class HandlerCallBack:
             self.handle_torrent_download(self.args[1], self.args[2], self.args[3])
     
     def handle_torrent_download(self, forum:str, torrent_id:str, cloud:str):
+        qb = QBittorrent(enviroment["QBIT_HOST"])
+        qb.login(enviroment["QBIT_USER"], enviroment['QBIT_PASSWORD'])
+        category_name = f"asc {torrent_id}"
         if forum == 'asc':
-            self.telegram_bot.send_message(chat_id=self.callback.message.chat.id, text=f"Você selecionou fazer download do torrent_id {torrent_id} do fórum {forum} para a cloud {cloud} forém esta função ainda está em construção :p")
+            # self.telegram_bot.send_message(chat_id=self.callback.message.chat.id, text=f"Você selecionou fazer download do torrent_id {torrent_id} do fórum {forum} para a cloud {cloud} forém esta função ainda está em construção :p")
+            asc = ASC(enviroment['ASC_USER'], enviroment['ASC_PASSWORD'])
+            asc.login()
+            raw_torrent_file = asc.download_torrent_file(torrent_id)
+            status = qb.download_from_file(raw_torrent_file, category=category_name)
+            msg = self.telegram_bot.send_message(chat_id=self.callback.message.chat.id, text=status)
+            download_progress_message_update(self.telegram_bot, msg, qb, category_name, float(enviroment['UPDATE_PROGRESS_MSG_SECS_DELAY']))
+        msg = self.telegram_bot.send_message(chat_id=self.callback.message.chat.id, text="Uploading...")
+        if cloud == 'googleDrive':
+            UploadToDrive(self.telegram_bot, msg, qb, category_name, enviroment["REMOTE_RCLONE"], float(enviroment["UPDATE_PROGRESS_MSG_SECS_DELAY"]))
 
-    
     def response_user(self, request_id, option):
         self.conn = load_db()
         status = self.conn.execute("SELECT status FROM requests WHERE request_id = ?", (request_id, )).fetchone()[0]

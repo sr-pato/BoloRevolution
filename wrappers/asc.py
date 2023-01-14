@@ -1,4 +1,4 @@
-from utils import generate_default_session, sanitize_str_html
+from utils import generate_default_session, sanitize_str_html, sanitize_url_html
 from bs4 import BeautifulSoup
 from urllib.parse import parse_qs, urlparse
 import re
@@ -53,12 +53,12 @@ class ASC:
         seeders = sanitize_str_html(soup.find("button", {"class": "btn btn-success"}).get_text())
         seeders = re.search("[0-9]+", seeders).group()
         leechers = sanitize_str_html(soup.find("button", {"class": "btn btn-danger"}).get_text())
-        leechers = re.search("[0-9]+", seeders).group()
+        leechers = re.search("[0-9]+", leechers).group()
         table = soup.find("table")
         lines = table.find_all("tr")
         title = sanitize_str_html(lines[0].find_all("td")[1].get_text())
         size = [sanitize_str_html(line.find_all("td")[1].text) for line in lines if 'Tamanho' in line.find("td").text][0]
-        poster_url = soup.find("a", {"data-fancybox": "gallery"}).get("href")
+        poster_url = sanitize_url_html(soup.find("a", {"data-fancybox": "gallery"}).get("href"))
         infos = {
             "title": title,
             "seeders": int(seeders),
@@ -66,6 +66,7 @@ class ASC:
             "size": size,
             "poster": poster_url
         }
+        
         return infos
     
     def download_torrent_file(self, torrent_id:str|int):

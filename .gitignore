@@ -4,3 +4,6 @@ wrappers/__pycache__
 .env
 *.html
 *.out
+*.torrent
+*.db
+teste.py
