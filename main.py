@@ -21,7 +21,7 @@ enviroment = dotenv.dotenv_values()
 
 openai.api_key = enviroment["TOKEN_API_OPENAI"]
 
-send_to_bolo = lambda bot, message: bot.send_message(chat_id=enviroment['BOLO_ID'], text=message)
+send_to_bolo = lambda bot, message: bot.send_message(chat_id=enviroment['BOLO_ID'], text=message, parse_mode="HTML")
 
 class Invoker:
     def __init__(self) -> None:
@@ -57,7 +57,7 @@ class HandlerCommand:
         if self.status is None:
             self.execute()
         if self.status is not None:
-            self.telegram_bot.send_message(chat_id=self.message.chat.id, text=self.status, reply_to_message_id=self.message.id)
+            self.telegram_bot.send_message(chat_id=self.message.chat.id, text=self.status, reply_to_message_id=self.message.id, parse_mode="HTML")
     
     def retrieve_command(self):
         commands = self.conn.execute("SELECT command_name, min_args, description, syntax, permission_level FROM comandos").fetchall()
@@ -116,7 +116,7 @@ class HandlerCommand:
         )
         
         if is_poster:
-            self.telegram_bot.send_photo(self.invoker.chat.id, poster_url, caption, reply_markup=keyboard)
+            self.telegram_bot.send_photo(self.invoker.chat.id, poster_url, caption, reply_markup=keyboard, parse_mode="HTML")
 
     def get_post_info(self):
         # sintax: /getpostinfo plataform post_id
@@ -132,7 +132,7 @@ class HandlerCommand:
                 return
             links = [f'<a href="{link}">{title}</a>' for title, link in post_info['links']]
             caption_text = f"Título: {post_info['title']}\nFontes: {' | '.join(links)}"
-            self.telegram_bot.send_photo(chat_id=msg.chat.id, photo=post_info['poster'], caption=caption_text)
+            self.telegram_bot.send_photo(chat_id=msg.chat.id, photo=post_info['poster'], caption=caption_text, parse_mode="HTML")
             self.telegram_bot.delete_message(chat_id=msg.chat.id, message_id=msg.message_id)
             ttz.logout()
         if self.args[0] == 'asc':
@@ -153,7 +153,7 @@ class HandlerCommand:
                 InlineKeyboardButton('Download to Gdrive', callback_data='downTorrentRequest asc ? googleDrive'.replace("?", self.args[1]))
             )
             caption_text = f"Título: {post_info['title']}\nTamanho: {post_info['size']}\nSeeders: {post_info['seeders']}\nLeechers: {post_info['leechers']}"
-            self.telegram_bot.send_photo(chat_id=msg.chat.id, photo=post_info['poster'], caption=caption_text, reply_markup=keyboard)
+            self.telegram_bot.send_photo(chat_id=msg.chat.id, photo=post_info['poster'], caption=caption_text, reply_markup=keyboard, parse_mode="HTML")
             self.telegram_bot.delete_message(chat_id=msg.chat.id, message_id=msg.message_id)
             asc.logout()
     
@@ -250,7 +250,7 @@ class HandlerCallBack:
         self.status = None
         self.analysis()
         if self.status is not None:
-            self.telegram_bot.send_message(chat_id=self.invoker.user_id, text=self.status)
+            self.telegram_bot.send_message(chat_id=self.invoker.user_id, text=self.status, parse_mode="HTML")
     
     def analysis(self):
         self.args = [x.strip() for x in self.callback.data.split()]
@@ -271,7 +271,7 @@ class HandlerCallBack:
             asc.login()
             raw_torrent_file = asc.download_torrent_file(torrent_id)
             status = qb.download_from_file(raw_torrent_file, category=category_name)
-            msg = self.telegram_bot.send_message(chat_id=self.callback.message.chat.id, text=status)
+            msg = self.telegram_bot.send_message(chat_id=self.callback.message.chat.id, text=status, parse_mode="HTML")
             download_progress_message_update(self.telegram_bot, msg, qb, category_name, float(enviroment['UPDATE_PROGRESS_MSG_SECS_DELAY']))
         msg = self.telegram_bot.send_message(chat_id=self.callback.message.chat.id, text="Uploading...")
         if cloud == 'googleDrive':
@@ -353,7 +353,7 @@ class Escritorio:
         
         self.enviromnent = enviroment
         if self.enviromnent.get('TOKEN'):
-            self.telegram_bot = telebot.TeleBot(self.enviromnent['TOKEN'], parse_mode="HTML")
+            self.telegram_bot = telebot.TeleBot(self.enviromnent['TOKEN'])
         else:
             raise ValueError("TOKEN on enviromnment variables is not defined.")
         
