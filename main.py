@@ -91,6 +91,11 @@ class HandlerCommand:
             self.generate_text_openai()
         elif self.command in ["gerarimg"]:
             self.generate_image_openai()
+        elif self.command in ["codecomplete"]:
+            self.completecode_openai()
+    
+    def completecode_openai(self):
+        pass
     
     def generate_image_openai(self):
         if 'x' in self.args[0]:
@@ -329,7 +334,7 @@ class HandlerMessage:
             # self.is_openai_command = True if msg.text.startswith(enviroment["OPENAI_PREFIX"]) else False
             self.retrieve_message_informations(msg)
             if self.is_command and not self.invoker.is_banned:
-                self.args = [x.strip() for x in self.message.text.split()]
+                self.args = [x for x in self.message.text.split()]
                 self.command = self.args.pop(0)[1:]
                 HandlerCommand(self.telegram_bot, self.command, self.args, self.invoker, self.message)
         else:
