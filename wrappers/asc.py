@@ -10,7 +10,6 @@ class ASC:
         self.session = None
         self.BASE_URL = 'https://cliente.amigos-share.club'
 
-
     def login(self):
         self.session = generate_default_session()
         self.session.get(self.BASE_URL)

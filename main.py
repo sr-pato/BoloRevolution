@@ -4,6 +4,7 @@ import dotenv
 import os
 import threading
 import datetime
+import openai
 from wrappers.ttz import TTZ
 from wrappers.asc import ASC
 from wrappers.qbittorrent import QBittorrent
@@ -17,6 +18,8 @@ get_datetime = lambda: datetime.datetime.now().strftime("%d/%m/%Y às %H:%M:%S")
 if not os.path.isfile(".env"):
     raise Exception('Enviroment File does not exists.')
 enviroment = dotenv.dotenv_values()
+
+openai.api_key = enviroment["TOKEN_API_OPENAI"]
 
 send_to_bolo = lambda bot, message: bot.send_message(chat_id=enviroment['BOLO_ID'], text=message)
 
@@ -291,6 +294,19 @@ class HandlerCallBack:
             send_to_bolo(self.telegram_bot, f'O usuário <a href="tg://user?id={self.invoker.user_id}">{self.invoker.account_name}</a> rejeitou os termos do pedido de número {request_id}, bye bye, já vai tarde.')
             self.status = f"Okay, volte sempre."
 
+class HandlerOpenAI:
+    def __init__(self, bot:telebot.TeleBot, invoker:Invoker, message:telebot.types.Message, prompt:str) -> None:
+        self.telegram_bot = bot
+        self.invoker = invoker
+        self.message = message
+        self.prompt = prompt.strip()
+        self.response()
+    
+    def response(self):
+        self.openai_response = openai.Completion.create(engine="text-davinci-003", prompt=self.prompt, max_tokens=300, n=1, stop=None, temperature=0.5)
+        self.telegram_bot.reply_to(self.message, self.openai_response.choices[0]["text"])
+
+
 class HandlerMessage:
     def __init__(self, bot, msg, is_callback) -> None:
         self.telegram_bot = bot
@@ -299,11 +315,15 @@ class HandlerMessage:
         self.message = msg
         if not is_callback:
             self.is_command = True if msg.text.startswith("/") else False
+            self.is_openai_command = True if msg.text.startswith(enviroment["OPENAI_PREFIX"]) else False
             self.retrieve_message_informations(msg)
             if self.is_command and not self.invoker.is_banned:
                 self.args = [x.strip() for x in self.message.text.split()]
                 self.command = self.args.pop(0)[1:]
                 HandlerCommand(self.telegram_bot, self.command, self.args, self.invoker, self.message)
+            elif self.is_openai_command:
+                prompt = msg.text[len(enviroment["OPENAI_PREFIX"]):]
+                HandlerOpenAI(self.telegram_bot, self.invoker, self.message, prompt)
         else:
             HandlerCallBack(self.telegram_bot, self.message, self.invoker)
             
