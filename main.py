@@ -32,7 +32,6 @@ class Invoker:
         self.is_banned = None
         self.permission_level = None
 
-
 class HandlerCommand:
     def __init__(self, bot: telebot.TeleBot, command: str, args: list, invoker: Invoker, message: telebot.types.Message) -> None:
         self.telegram_bot = bot
@@ -88,6 +87,29 @@ class HandlerCommand:
             self.get_post_info()
         elif self.command in ['linktodrive']:
             self.link_to_drive_downloader()
+        elif self.command in ["gerartexto", "gtxt", "gerartxt", "generatetxt"]:
+            self.generate_text_openai()
+        elif self.command in ["gerarimg"]:
+            self.generate_image_openai()
+    
+    def generate_image_openai(self):
+        if 'x' in self.args[0]:
+            size = self.args.pop(0)
+        else:
+            size = '1024x1024'
+        prompt = " ".join(self.args)
+        try:
+            image = openai.Image.create(prompt=prompt, n=1, size=size)
+        except Exception as e:
+            self.telegram_bot.reply_to(self.message, f"Exception: <code>{e}</code>", parse_mode="html")
+        else:
+            self.telegram_bot.send_photo(self.message.chat.id, image["data"][0]['url'], reply_to_message_id=self.message.message_id)
+    
+    def generate_text_openai(self):
+        # sintax: /gerartexto texto aqui
+        prompt = " ".join(self.args)
+        completion = openai.Completion.create(engine="text-davinci-003", prompt=prompt, temperature=0.5, max_tokens=300, n=1, stop=None)
+        self.telegram_bot.reply_to(self.message, completion.choices[0].text)
     
     def link_do_drive_downloader(self):
         # sintax: /linktodrive linkhere
@@ -294,17 +316,6 @@ class HandlerCallBack:
             send_to_bolo(self.telegram_bot, f'O usuário <a href="tg://user?id={self.invoker.user_id}">{self.invoker.account_name}</a> rejeitou os termos do pedido de número {request_id}, bye bye, já vai tarde.')
             self.status = f"Okay, volte sempre."
 
-class HandlerOpenAI:
-    def __init__(self, bot:telebot.TeleBot, invoker:Invoker, message:telebot.types.Message, prompt:str) -> None:
-        self.telegram_bot = bot
-        self.invoker = invoker
-        self.message = message
-        self.prompt = prompt.strip()
-        self.response()
-    
-    def response(self):
-        self.openai_response = openai.Completion.create(engine="text-davinci-003", prompt=self.prompt, max_tokens=300, n=1, stop=None, temperature=0.5)
-        self.telegram_bot.reply_to(self.message, self.openai_response.choices[0]["text"])
 
 
 class HandlerMessage:
@@ -315,15 +326,12 @@ class HandlerMessage:
         self.message = msg
         if not is_callback:
             self.is_command = True if msg.text.startswith("/") else False
-            self.is_openai_command = True if msg.text.startswith(enviroment["OPENAI_PREFIX"]) else False
+            # self.is_openai_command = True if msg.text.startswith(enviroment["OPENAI_PREFIX"]) else False
             self.retrieve_message_informations(msg)
             if self.is_command and not self.invoker.is_banned:
                 self.args = [x.strip() for x in self.message.text.split()]
                 self.command = self.args.pop(0)[1:]
                 HandlerCommand(self.telegram_bot, self.command, self.args, self.invoker, self.message)
-            elif self.is_openai_command:
-                prompt = msg.text[len(enviroment["OPENAI_PREFIX"]):]
-                HandlerOpenAI(self.telegram_bot, self.invoker, self.message, prompt)
         else:
             HandlerCallBack(self.telegram_bot, self.message, self.invoker)
             
@@ -334,7 +342,7 @@ class HandlerMessage:
         self.invoker = Invoker()
         self.invoker.user_id = msg.from_user.id
         self.invoker.username = msg.from_user.username
-        self.invoker.account_name = f"{msg.from_user.first_name if msg.from_user.first_name is not None else ''} {msg.from_user.first_name if msg.from_user.last_name is not None else ''}"
+        self.invoker.account_name = f"{msg.from_user.first_name if msg.from_user.first_name is not None else ''} {msg.from_user.last_name if msg.from_user.last_name is not None else ''}"
         conn = load_db()
         has_iteracted = conn.execute("SELECT requests, has_banned, permission_level FROM users WHERE user_id = ?", (self.invoker.user_id, )).fetchone()
         if not has_iteracted:
