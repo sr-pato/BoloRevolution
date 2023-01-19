@@ -6,3 +6,4 @@ wrappers/__pycache__
 *.out
 *.torrent
 *.db
+*cookies.json

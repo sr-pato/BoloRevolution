@@ -93,6 +93,11 @@ class HandlerCommand:
             self.generate_image_openai()
         elif self.command in ["codecomplete"]:
             self.completecode_openai()
+        elif self.command in ['xred']:
+            self.xred_download()
+    
+    def xred_download(self):
+        pass
     
     def completecode_openai(self):
         pass
@@ -113,7 +118,7 @@ class HandlerCommand:
     def generate_text_openai(self):
         # sintax: /gerartexto texto aqui
         prompt = " ".join(self.args)
-        completion = openai.Completion.create(engine="text-davinci-003", prompt=prompt, temperature=0.5, max_tokens=300, n=1, stop=None)
+        completion = openai.Completion.create(engine="text-davinci-003", prompt=prompt, temperature=0.3, max_tokens=1024, n=1, stop=None)
         self.telegram_bot.reply_to(self.message, completion.choices[0].text)
     
     def link_do_drive_downloader(self):
